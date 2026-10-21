@@ -10,6 +10,8 @@ import torch.nn.functional as F
 class Transformer(nn.Module):
     """入力 [a, b, =] を受け取り、'=' の位置で (a + b) mod p のロジットを出力する1層モデル。"""
 
+    mask: torch.Tensor  # register_buffer で登録するバッファの型
+
     def __init__(self, p: int, d_model: int, n_heads: int, d_mlp: int, seq_len: int, init_seed: int):
         super().__init__()
         assert d_model % n_heads == 0, "d_model は n_heads で割り切れる必要がある"
@@ -84,6 +86,7 @@ class Transformer(nn.Module):
 
         return x2 @ self.W_U.T                                   # (B, p)
 
+    @torch.no_grad()
     def weight_sq_norm(self) -> float:
         """全パラメータの二乗和 Σ θ_i^2"""
         sq_sums = [(prm ** 2).sum().item() for prm in self.parameters()]

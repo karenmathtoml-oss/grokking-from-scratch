@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 
 from grokking.analysis.neurons import capture
+from grokking.config import Config
 from grokking.model import Transformer
 
 p = 7
@@ -36,8 +37,9 @@ def test_init_seed():
         assert not torch.equal(a, c), name
 
 def test_parameter_count():
-    """既定設定（p = 113）のパラメータ数が 226,048（各重みの形が仕様どおり）。"""
-    n = sum(prm.numel() for prm in make_model(init_seed=0).parameters())
+    cfg = Config()
+    m = Transformer(cfg.p, cfg.d_model, cfg.n_heads, cfg.d_mlp, seq_len=3, init_seed=cfg.init_seed)
+    n = sum(prm.numel() for prm in m.parameters())
     assert n == 226_048
 
 def test_causal_mask():
