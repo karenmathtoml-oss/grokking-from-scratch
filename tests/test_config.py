@@ -31,6 +31,20 @@ def test_base_overrides_only_given_keys(tmp_path):
     assert cfg.lr == Config().lr        # どちらにも書かれていない値は、既定値のまま
 
 
+def test_load_skips_git_key(tmp_path):
+    """train.py が書く config.json（git ハッシュ付き）を読み直せる。"""
+    cfg = Config(p=7, run_name="rt")
+    cfg.save(tmp_path / "config.json", extra={"git": "0123abc"})
+    assert Config.load(tmp_path / "config.json") == cfg
+
+
+def test_unknown_key_raises_even_with_git(tmp_path):
+    """git を読み飛ばしても、それ以外の知らないキーはエラーのまま。"""
+    path = write_json(tmp_path / "c.json", {"git": "0123abc", "weight_decya": 0.0})
+    with pytest.raises(KeyError):
+        Config.load(path)
+
+
 def test_unknown_key_raises(tmp_path):
     path = write_json(tmp_path / "c.json", {"weight_decya": 0.0})
     with pytest.raises(KeyError):
