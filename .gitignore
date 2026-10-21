@@ -1,0 +1,8 @@
+## Ignore Python bytecode files
+
+runs/
+*.pt
+*.ipynb_checkpoints/
+__pycache__/
+.pytest_cache/
+.venv/
