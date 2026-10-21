@@ -10,7 +10,7 @@ class Config:
     p: int = 113
     train_frac: float = 0.3
     data_seed: int = 0          # 分割に使う。実験 C では init_seed だけを変える
-    init_seed: int = 0          # 重みの初期値に使う
+    init_seed: int = 0          # 重みの初期値
     d_model: int = 128
     n_heads: int = 4
     d_mlp: int = 512
@@ -23,7 +23,8 @@ class Config:
     run_name: str = "base"
 
     def __post_init__(self):
-        self.betas = tuple(self.betas)          # JSON のリストをタプルに戻す
+        beta1, beta2 = self.betas
+        self.betas = (beta1, beta2)
 
     @classmethod
     def load(cls, path: str | Path, **overrides) -> "Config":
