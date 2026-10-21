@@ -10,8 +10,7 @@ import torch.nn.functional as F
 class Transformer(nn.Module):
     """入力 [a, b, =] を受け取り、'=' の位置で (a + b) mod p のロジットを出力する1層モデル。"""
 
-    def __init__(self, p: int, d_model: int = 128, n_heads: int = 4, d_mlp: int = 512,
-                 seq_len: int = 3, init_seed: int = 0):
+    def __init__(self, p: int, d_model: int, n_heads: int, d_mlp: int, seq_len: int, init_seed: int):
         super().__init__()
         assert d_model % n_heads == 0, "d_model は n_heads で割り切れる必要がある"
         self.p = p

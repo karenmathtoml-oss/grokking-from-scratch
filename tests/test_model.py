@@ -5,10 +5,16 @@ import torch.nn.functional as F
 from grokking.analysis.neurons import capture
 from grokking.model import Transformer
 
-
 p = 7
-model = Transformer(p, d_model=16, n_heads=2, d_mlp=8, init_seed=0)
 tokens = torch.tensor([[1, 2, p], [3, 4, p]])
+ 
+ 
+def make_model(init_seed: int = 0) -> Transformer:
+    """テスト用の小さいモデル。Config の値には依存しない。"""
+    return Transformer(p, d_model=16, n_heads=2, d_mlp=8, seq_len=3, init_seed=init_seed)
+ 
+ 
+model = make_model()
 
 
 def test_output_shape_and_dtype():
@@ -21,17 +27,17 @@ def test_output_shape_and_dtype():
 def test_init_seed():
     """全パラメータが init_seed だけで決まり、グローバル乱数に影響されない。"""
     torch.manual_seed(1)
-    m1 = Transformer(p, 16, 2, 8, init_seed=0)
+    m1 = make_model(init_seed=0)
     torch.manual_seed(2)
-    m2 = Transformer(p, 16, 2, 8, init_seed=0)
-    m3 = Transformer(p, 16, 2, 8, init_seed=1)
+    m2 = make_model(init_seed=0)
+    m3 = make_model(init_seed=1)
     for (name, a), b, c in zip(m1.named_parameters(), m2.parameters(), m3.parameters()):
         assert torch.equal(a, b), name
         assert not torch.equal(a, c), name
 
 def test_parameter_count():
     """既定設定（p = 113）のパラメータ数が 226,048（各重みの形が仕様どおり）。"""
-    n = sum(prm.numel() for prm in Transformer(113).parameters())
+    n = sum(prm.numel() for prm in make_model(init_seed=0).parameters())
     assert n == 226_048
 
 def test_causal_mask():
@@ -64,7 +70,7 @@ def test_batch_independence():
 
 def test_all_parameters_receive_gradient():
     """損失から全パラメータに勾配が届く（forward で使い忘れた重みがない）。"""
-    m = Transformer(p, 16, 2, 8, init_seed=0)
+    m = make_model(init_seed=0)
     labels = (tokens[:, 0] + tokens[:, 1]) % p
     loss = F.cross_entropy(m(tokens), labels)
     loss.backward()
@@ -74,7 +80,7 @@ def test_all_parameters_receive_gradient():
 
 def test_weight_sq_norm():
     """全パラメータを 1 にすると、二乗和はパラメータ数と一致する。"""
-    m = Transformer(p, 16, 2, 8, init_seed=0)
+    m = make_model(init_seed=0)
     with torch.no_grad():
         for prm in m.parameters():
             prm.fill_(1.0)
