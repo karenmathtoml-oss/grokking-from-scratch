@@ -1,5 +1,7 @@
 # grokking-from-scratch
 
+English | [日本語](README.ja.md)
+
 A from-scratch reproduction of *Progress measures for grokking via mechanistic interpretability* (Nanda et al., 2023). A one-layer Transformer learns addition modulo 113 from 30% of all pairs. It memorizes the training set within a few hundred steps and generalizes to the held-out pairs only much later ("grokking"). The repository also contains the Fourier analysis used to show that the trained network computes `a + b` with a handful of frequencies.
 
 **Status:** all code (data, model, config, training loop, Fourier analysis, plots) is implemented and covered by tests. The full 40,000-step run and the final figures are pending.
