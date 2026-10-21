@@ -31,6 +31,7 @@ class Config:
         """JSON を読む。"base" キーがあれば、その設定を読んでから差分で上書きする。"""
         d = json.loads(Path(path).read_text())
         base = d.pop("base", None)
+        d.pop("git", None)          # train.py が config.json に書く記録用のキー。設定ではない
         cfg = cls.load(Path(path).parent / base) if base else cls()
         for k, v in {**d, **overrides}.items():
             if k not in {f.name for f in fields(cls)}:
