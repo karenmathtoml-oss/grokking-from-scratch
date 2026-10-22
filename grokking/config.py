@@ -7,11 +7,11 @@ from pathlib import Path
 
 @dataclass
 class Config:
-    """設定の項目と型。値は configs/base.json にだけ書き、ここには既定値を持たせない。"""
+    """値は configs/base.json から引用"""
 
     p: int
     train_frac: float
-    data_seed: int              # 分割に使う。実験 C では init_seed だけを変える
+    data_seed: int              # 分割用
     init_seed: int              # 重みの初期値
     d_model: int
     n_heads: int
@@ -31,7 +31,7 @@ class Config:
     @classmethod
     def load(cls, path: str | Path, **overrides) -> "Config":
         """JSON を読む。"base" キーがあれば、その設定を読んでから差分で上書きする。
-        キーが足りなくても、知らないキーがあっても KeyError。
+        キーが足りない、または知らないキーがあったら KeyError。
         """
         d = json.loads(Path(path).read_text(encoding="utf-8"))
         base = d.pop("base", None)
