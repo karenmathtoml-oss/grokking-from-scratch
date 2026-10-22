@@ -4,7 +4,7 @@ English | [日本語](README.ja.md)
 
 A from-scratch reproduction of *Progress measures for grokking via mechanistic interpretability* (Nanda et al., 2023). A one-layer Transformer learns addition modulo 113 from 30% of all pairs. It memorizes the training set within a few hundred steps and generalizes to the held-out pairs only much later ("grokking"). The repository also contains the Fourier analysis used to show that the trained network computes `a + b` with a handful of frequencies.
 
-**Status:** all code (data, model, config, training loop, Fourier analysis, plots) is implemented and covered by tests. The full 40,000-step run and the final figures are pending.
+**Status:** all code (data, model, config, training loop, Fourier analysis, plots) is implemented and covered by tests. The full 40,000-step run with the base settings reproduces both the delayed generalization and the sparse Fourier structure (see [Results](#results)).
 
 ## Setup
 
@@ -59,13 +59,36 @@ Each run writes to `runs/<run_name>/`, which is not tracked by git.
 |---|---|
 | `figures/fig1_curve.png` | Loss and accuracy curves (log-scaled steps) |
 | `figures/fig2_spectrum.gif` | Evolution of the embedding spectrum across checkpoints |
+| `figures/fig2_spectrum_before_after.png` | Spectra of `W_E` at step 0 and of `W_E`, `W_L` after training |
 | `figures/fig3_neuron.png` | Activation of one MLP neuron over all `(a, b)` |
 
-Figures will be added after the full run.
+The notebook saves the figures to `runs/base/figures/` on Google Drive; the ones shown below were copied into `figures/`.
 
-<!-- ![Figure 1](figures/fig1_curve.png) -->
-<!-- ![Figure 2](figures/fig2_spectrum.gif) -->
-<!-- ![Figure 3](figures/fig3_neuron.png) -->
+## Results
+
+One run with the base settings (`configs/base.json`, `data_seed = init_seed = 0`), 40,000 full-batch steps on a Colab GPU.
+
+### Figure 1: grokking curve
+
+![Loss and accuracy curves](figures/fig1_curve.png)
+
+Training accuracy reaches 100% by step 200, while test accuracy stays below about 10% until around step 4,000. Test accuracy then rises sharply and is close to 100% by about step 7,000, where it stays until the end of training. Test loss drops by several orders of magnitude over the same interval.
+
+The training loss does not decrease monotonically: from about step 2,000 it repeatedly jumps from around 1e-7 up to 1e-3–1e-2 and recovers. These spikes do not prevent generalization; their cause (float32 precision at very small losses, or a sharp loss surface) has not been isolated yet.
+
+### Figure 2: Fourier spectrum of the embedding
+
+![Embedding spectrum across checkpoints](figures/fig2_spectrum.gif)
+
+![Spectra before and after training](figures/fig2_spectrum_before_after.png)
+
+At step 0, all 56 frequencies have roughly the same norm. After training, the embedding `W_E` concentrates on about five frequencies and is small everywhere else. The neuron-to-logit map `W_L = W_U W_out` peaks at four of the same frequencies, so the network reads in and writes out `a + b` using a shared, sparse set of frequencies, as reported by Nanda et al.
+
+### Figure 3: an MLP neuron
+
+![Activation of neuron 488](figures/fig3_neuron.png)
+
+Neuron 488 (the neuron with the largest variance over all inputs) fires on a regular grid in the `(a, b)` plane, with six periods along each axis, i.e. a period of 113/6 ≈ 19. This corresponds to frequency k = 6, one of the peaks in Figure 2. The activation depends periodically on `a` and on `b` at the same frequency, which is the input the network needs to compute `cos(ω_k(a + b))` with the addition formula.
 
 ## Repository layout
 
@@ -75,6 +98,7 @@ grokking/analysis/   fourier.py, neurons.py, plots.py
 configs/             base.json, experiments/*.json
 notebooks/           01_train.ipynb, 02_fourier_analysis.ipynb (outputs cleared)
 tests/               pytest suite
+figures/             figures shown in this README
 docs/                spec.md (specification), notes.md (issues and lessons)
 ```
 
