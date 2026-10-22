@@ -1,14 +1,10 @@
 # grokking-from-scratch
 
-English | [日本語](README.ja.md)
+Nanda et al.（2023）*Progress measures for grokking via mechanistic interpretability* を、一から再現するリポジトリです。1層Transformer に、113 を法とする加法を、全データセットの30%だけで学習させます。モデルは数百ステップで訓練データを丸暗記しますが、テストデータへの汎化は、それよりずっと後に急に起こります（grokking）。学習したネットワークが、少数の周波数を使って `a + b` を計算していることを示すフーリエ解析も行います。
 
-A from-scratch reproduction of *Progress measures for grokking via mechanistic interpretability* (Nanda et al., 2023). A one-layer Transformer learns addition modulo 113 from 30% of all pairs. It memorizes the training set within a few hundred steps and generalizes to the held-out pairs only much later ("grokking"). The repository also contains the Fourier analysis used to show that the trained network computes `a + b` with a handful of frequencies.
+**実行結果：** 基準設定で 40,000 ステップの本番の学習を行い、訓練データの暗記に対する汎化の遅れと、訓練後に少数の周波数に集中するフーリエ構造の両方を再現しました（[結果](#結果)）。
 
-**Status:** all code (data, model, config, training loop, Fourier analysis, plots) is implemented and covered by tests. The full 40,000-step run with the base settings reproduces both the delayed generalization and the sparse Fourier structure (see [Results](#results)).
-
-## Setup
-
-Run every command from the repository root.
+## セットアップ
 
 ```bash
 python -m venv .venv
@@ -17,92 +13,91 @@ python -m pip install torch numpy pandas matplotlib imageio pytest
 python -m pytest tests -q
 ```
 
-## Training
+## 学習
 
 ```bash
 python -m grokking.train --config configs/base.json
 ```
 
-The full run is intended for Google Colab with a GPU (`notebooks/01_train.ipynb`). On a CPU, a 2,000-step smoke run (`configs/experiments/smoke.json`) took 242 s, i.e. about 0.12 s per step.
+本番の学習は、Google Colab の GPU で行う想定です（`notebooks/01_train.ipynb`）。
+CPU では、2,000 ステップのスモーク実行（`configs/experiments/smoke.json`）に 約250秒掛かりました。この場合、本番実行には数十分掛かることが予想されるので、CPU環境はおすすめしません。
 
-Each run writes to `runs/<run_name>/`, which is not tracked by git.
+実行の結果は `runs/<run_name>/` に書かれます。このフォルダは git の管理外です。
 
-| File | Content |
+| ファイル | 内容 |
 |---|---|
-| `config.json` | All settings plus the git commit hash of the code |
-| `metrics.csv` | `step, train_loss, train_accuracy, test_loss, test_accuracy, weight_sq_norm`, every `log_every` steps |
-| `ckpt_XXXXXX.pt` | Model `state_dict` at log-spaced steps (about 40 per run) |
+| `config.json` | 全設定と、コードの git コミットハッシュ |
+| `metrics.csv` | `step, train_loss, train_accuracy, test_loss, test_accuracy, weight_sq_norm`（`log_every` ステップごと） |
+| `ckpt_XXXXXX.pt` | 対数間隔のステップでのモデルの `state_dict`（1回の実行で約40個） |
 
-## Configuration
+## 設定
 
-`configs/base.json` holds the settings of the paper. `Config` in `grokking/config.py` is the single source of default values, and a test checks that the two agree.
+`configs/base.json` は元論文と同じ設定です。既定値は `grokking/config.py` の `Config` に書いて統一します。両者が一致することをテストで確かめています。
 
-| Key | Value | Key | Value |
+| キー | 値 | キー | 値 |
 |---|---|---|---|
 | `p` | 113 | `lr` | 1e-3 |
 | `train_frac` | 0.3 | `weight_decay` | 1.0 |
 | `d_model` | 128 | `betas` | (0.9, 0.98) |
-| `n_heads` | 4 | `steps` | 40,000 (full batch, AdamW) |
+| `n_heads` | 4 | `steps` | 40,000（フルバッチ、AdamW） |
 | `d_mlp` | 512 | `log_every` / `n_checkpoints` | 100 / 40 |
 
-`data_seed` fixes the train/test split and `init_seed` fixes the initial weights; they are independent of each other. An experiment is a small JSON file that overrides the base settings, and unknown keys raise an error:
+訓練データの割合は `train_frac` で決まります。`data_seed` はどの組を訓練データに入れるか（並べ替え）を、`init_seed` は重みの初期値を決め、2つは互いに独立です。実験は、基準設定との差分だけを書いた `configs/experiments/*.json` で表し、`"base"` キーで `base.json` を参照します。知らないキーがあると、エラーになります。
 
 ```json
 {"base": "../base.json", "weight_decay": 0.0, "run_name": "A_wd_0"}
 ```
 
-## Analysis and figures
+## 解析と図示
 
-`notebooks/02_fourier_analysis.ipynb` loads a checkpoint, computes the Fourier spectra of the embedding `W_E` and of the neuron-to-logit map `W_U W_out`, and produces the figures with `grokking/analysis/plots.py`.
+`notebooks/02_fourier_analysis.ipynb` はチェックポイントを読み込み、埋め込み `W_E` と、ニューロンからロジットへの写像 `W_U W_out` のフーリエスペクトルを計算します。この値を、`grokking/analysis/plots.py` で図示することができます。
 
-| Figure | Content |
+| 図 | 内容 |
 |---|---|
-| `figures/fig1_curve.png` | Loss and accuracy curves (log-scaled steps) |
-| `figures/fig2_spectrum.gif` | Evolution of the embedding spectrum across checkpoints |
-| `figures/fig2_spectrum_before_after.png` | Spectra of `W_E` at step 0 and of `W_E`, `W_L` after training |
-| `figures/fig3_neuron.png` | Activation of one MLP neuron over all `(a, b)` |
+| `figures/fig1_curve.png` | 損失と精度の対数グラフ |
+| `figures/fig2_spectrum.gif` | チェックポイントごとの埋め込みスペクトルの変化 |
+| `figures/fig2_spectrum_before_after.png` | ステップ 0 の `W_E` と、学習後の `W_E`・`W_L` のスペクトル |
+| `figures/fig3_neuron.png` | 1つの MLP ニューロンの、全データ `(a, b)` に対する活性 |
 
-The notebook saves the figures to `runs/base/figures/` on Google Drive; the ones shown below were copied into `figures/`.
+Google Colabでの実行時、ノートブックは図を Google Drive の `runs/base/figures/` に保存します。
 
-## Results
+## 結果
 
-One run with the base settings (`configs/base.json`, `data_seed = init_seed = 0`), 40,000 full-batch steps on a Colab GPU.
+基準設定（`configs/base.json`、`data_seed = init_seed = 0`）で、Colab の T4 GPU を使い、フルバッチで 40,000 ステップ学習した1回の結果です。
 
-### Figure 1: grokking curve
+### 図1：grokking の曲線
 
-![Loss and accuracy curves](figures/fig1_curve.png)
+![損失と精度の曲線](figures/fig1_curve.png)
 
-Training accuracy reaches 100% by step 200, while test accuracy stays below about 10% until around step 4,000. Test accuracy then rises sharply and is close to 100% by about step 7,000, where it stays until the end of training. Test loss drops by several orders of magnitude over the same interval.
+訓練精度はステップ 200 までに 100% になります。一方、テスト精度はステップ 4,000 前後まで約 10% 以下にとどまります。その後テスト精度は急に上がり、ステップ 7,000 ごろにはほぼ 100% に達し、学習の終わりまでその値を保ちます。テスト損失も、同じ区間で急激に下がります。
 
-The training loss does not decrease monotonically: from about step 2,000 it repeatedly jumps from around 1e-7 up to 1e-3–1e-2 and recovers. These spikes do not prevent generalization; their cause (float32 precision at very small losses, or a sharp loss surface) has not been isolated yet.
+### 図2：埋め込みのフーリエスペクトル
 
-### Figure 2: Fourier spectrum of the embedding
+![チェックポイントごとの埋め込みスペクトル](figures/fig2_spectrum.gif)
 
-![Embedding spectrum across checkpoints](figures/fig2_spectrum.gif)
+![学習前後のスペクトル](figures/fig2_spectrum_before_after.png)
 
-![Spectra before and after training](figures/fig2_spectrum_before_after.png)
+ステップ 0 では、56 個の周波数がどれもほぼ同じ強さです。学習後は、埋め込み `W_E` が5つ前後の周波数に集中し、それ以外はほぼ 0 になります。ニューロンからロジットへの写像 `W_L = W_U W_out` は、そのうちの4つと同じ周波数にピークを持ちます。つまりネットワークは、入口でも出口でも共通の少数の周波数を使って `a + b` を扱っており、Nanda et al. の報告と一致します。
 
-At step 0, all 56 frequencies have roughly the same norm. After training, the embedding `W_E` concentrates on about five frequencies and is small everywhere else. The neuron-to-logit map `W_L = W_U W_out` peaks at four of the same frequencies, so the network reads in and writes out `a + b` using a shared, sparse set of frequencies, as reported by Nanda et al.
+### 図3：MLP のニューロン
 
-### Figure 3: an MLP neuron
+![ニューロンにおける規則性の観測](figures/fig3_neuron.png)
 
-![Activation of neuron 488](figures/fig3_neuron.png)
+全入力に対する分散が最大のニューロンは、`(a, b)` 平面の上で規則的な格子状に発火します。各軸に沿って6周期、つまり周期は 113/6 ≈ 19 で、これは図2のピークの1つである周波数 k = 6 に対応します。活性は `a` と `b` のそれぞれについて同じ周波数で周期的に変わっており、加法定理で `cos(ω_k(a + b))` を計算するのに必要な入力になっています。
 
-Neuron 488 (the neuron with the largest variance over all inputs) fires on a regular grid in the `(a, b)` plane, with six periods along each axis, i.e. a period of 113/6 ≈ 19. This corresponds to frequency k = 6, one of the peaks in Figure 2. The activation depends periodically on `a` and on `b` at the same frequency, which is the input the network needs to compute `cos(ω_k(a + b))` with the addition formula.
-
-## Repository layout
+## ディレクトリ構成
 
 ```
 grokking/            data.py, model.py, config.py, train.py
 grokking/analysis/   fourier.py, neurons.py, plots.py
 configs/             base.json, experiments/*.json
-notebooks/           01_train.ipynb, 02_fourier_analysis.ipynb (outputs cleared)
-tests/               pytest suite
-figures/             figures shown in this README
-docs/                spec.md (specification), notes.md (issues and lessons)
+notebooks/           01_train.ipynb, 02_fourier_analysis.ipynb
+tests/               pytest のテスト
+figures/             README に載せる図
+docs/                spec.md、notes.md
 ```
 
-## References
+## 参考文献
 
 Nanda, Chan, Lieberum, Smith, Steinhardt (2023). Progress measures for grokking via mechanistic interpretability. ICLR 2023. arXiv:2301.05217.
 
@@ -112,6 +107,6 @@ Liu, Michaud, Tegmark (2023). Omnigrok: Grokking beyond algorithmic data. arXiv:
 
 Loshchilov, Hutter (2019). Decoupled weight decay regularization. arXiv:1711.05101.
 
-## License
+## ライセンス
 
-See `LICENSE`.
+`LICENSE` を参照してください。
