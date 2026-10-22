@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 import torch
 import torch.nn.functional as F
@@ -5,6 +7,8 @@ import torch.nn.functional as F
 from grokking.analysis.neurons import capture
 from grokking.config import Config
 from grokking.model import Transformer
+
+ROOT = Path(__file__).resolve().parent.parent
 
 p = 7
 tokens = torch.tensor([[1, 2, p], [3, 4, p]])
@@ -37,7 +41,7 @@ def test_init_seed():
         assert not torch.equal(a, c), name
 
 def test_parameter_count():
-    cfg = Config()
+    cfg = Config.load(ROOT / "configs" / "base.json")
     m = Transformer(cfg.p, cfg.d_model, cfg.n_heads, cfg.d_mlp, seq_len=3, init_seed=cfg.init_seed)
     n = sum(prm.numel() for prm in m.parameters())
     assert n == 226_048
