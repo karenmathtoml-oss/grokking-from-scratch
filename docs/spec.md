@@ -39,7 +39,23 @@ n = ReLU(W_in x⁽¹⁾₂),   x⁽²⁾ = x⁽¹⁾₂ + W_out n
 
 ## 最適化
 
-AdamW（lr = 1e-3、weight_decay = 1.0、betas = (0.9, 0.98)）で、フルバッチ 40,000 ステップです。`torch.optim.AdamW` の weight_decay の既定値は 0.01 なので、必ず明示します。`torch.optim.Adam` の weight_decay は L2 正則化で挙動が違うため使いません。
+AdamW（lr = 1e-3、weight_decay = 1.0、betas = (0.9, 0.98)）で、フルバッチ 40,000 ステップです。`torch.optim.AdamW` の weight_decay の既定値は 0.01 なので、必ず明示します。`torch.optim.Adam` の weight_decay は L2 正則化で挙動が違うため使いません。損失は float64 で計算します（`grokking/train.py` の `cross_entropy`）。float32 では、自信の強い予測に対する損失が約 1.2e-7 の倍数に丸められるためです。
+
+## 公開実装との違い
+
+Nanda et al. の公開実装（[progress-measures-paper](https://github.com/mechanistic-interpretability-grokking/progress-measures-paper) の `transformers.py` と `helpers.py`、`main` ブランチ）と比べました。`p`、`train_frac`、d、H、d_mlp、lr、weight_decay、betas、フルバッチ、`W_E`・`W_pos`・`W_Q`・`W_K`・`W_V`・`W_O`・`W_in` の初期化、因果マスク、`=` の位置だけで損失を取る点は同じです。違いは次のとおりです。論文本文とはまだ照合していません。
+
+| 項目 | 公開実装 | このリポジトリ |
+|---|---|---|
+| 学習ステップ数 | 50,000（`num_epochs`） | 40,000 |
+| 学習率のウォームアップ | 最初の 10 ステップで線形に上げる（`LambdaLR`、`min(step/10, 1)`） | なし |
+| MLP のバイアス | `b_in`、`b_out` あり（0 で初期化） | なし |
+| `W_out` の初期化 | N(0, 1/d) | N(0, 1/d_mlp) |
+| 出力の次元と `W_U` の初期化 | p + 1（`=` を含む）、N(0, 1/(p+1)) | p、N(0, 1/d) |
+| 損失の精度 | コメントは float64 とするが、コードは float32 に変換している | float64 |
+| 訓練データの選び方 | Python の `random.shuffle`（`seed`） | `torch.randperm`（`data_seed`） |
+
+これらの違いが学習曲線にどれだけ影響するかは、まだ確かめていません。
 
 ## 記録するもの
 

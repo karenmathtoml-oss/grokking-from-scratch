@@ -13,11 +13,16 @@ from grokking.data import CyclicGroup, make_dataset, train_test_split
 from grokking.model import Transformer
 
 
+def cross_entropy(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    """float64 で計算する交差エントロピー。float32 だと損失が約 1.2e-7 の倍数に丸められ、スパイクの原因になる。"""
+    return F.cross_entropy(logits.to(torch.float64), labels)
+
+
 @torch.no_grad()
 def evaluate(model: Transformer, tokens: torch.Tensor, labels: torch.Tensor) -> tuple[float, float]:
     """(損失, 正解率) を返す。"""
     logits = model(tokens)
-    loss = F.cross_entropy(logits, labels)
+    loss = cross_entropy(logits, labels)
     accuracy = (logits.argmax(dim=-1) == labels).float().mean()
     return loss.item(), accuracy.item()
 
@@ -102,7 +107,7 @@ def train(cfg: Config, root: str | Path = "runs", device: str | None = None) -> 
 
             model.train()
             logits = model(train_tokens)
-            loss = F.cross_entropy(logits, train_labels)
+            loss = cross_entropy(logits, train_labels)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()

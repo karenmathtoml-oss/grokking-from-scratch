@@ -9,9 +9,11 @@ Nanda et al.（2023）*Progress measures for grokking via mechanistic interpreta
 ```bash
 python -m venv .venv
 # Windows: .\.venv\Scripts\Activate.ps1    macOS/Linux: source .venv/bin/activate
-python -m pip install torch numpy pandas matplotlib imageio pytest
+python -m pip install -e ".[dev]"
 python -m pytest tests -q
 ```
+
+依存パッケージの下限は `pyproject.toml` にあります。動作を確認した版は Python 3.13、torch 2.14.1、numpy 2.5.4、pandas 3.1.0、matplotlib 3.11.2、imageio 2.38.1（CPU）です。
 
 ## 学習
 
@@ -32,7 +34,7 @@ CPU では、2,000 ステップのスモーク実行（`configs/experiments/smok
 
 ## 設定
 
-`configs/base.json` は元論文と同じ設定で、設定の値はこのファイルにだけ書きます。`grokking/config.py` の `Config` は項目の名前と型だけを定め、既定値を持ちません。キーが足りなくても、知らないキーがあっても、読み込み時にエラーになります。
+`configs/base.json` のハイパーパラメータ（`p`、`train_frac`、`d_model`、`n_heads`、`d_mlp`、`lr`、`weight_decay`、`betas`）は、元論文の公開実装と同じです。ステップ数、学習率のウォームアップ、MLP のバイアス、一部の重みの初期化は異なります（[`docs/spec.md` の「公開実装との違い」](docs/spec.md#公開実装との違い)）。設定の値はこのファイルにだけ書きます。`grokking/config.py` の `Config` は項目の名前と型だけを定め、既定値を持ちません。キーが足りなくても、知らないキーがあっても、読み込み時にエラーになります。
 
 | キー | 値 | キー | 値 |
 |---|---|---|---|
@@ -69,7 +71,9 @@ Google Colabでの実行時、ノートブックは図を Google Drive の `runs
 
 ![損失と精度の曲線](figures/fig1_curve.png)
 
-訓練精度はステップ 200 までに 100% になります。一方、テスト精度はステップ 4,000 前後まで約 10% 以下にとどまります。その後テスト精度は急に上がり、ステップ 7,000 ごろにはほぼ 100% に達し、学習の終わりまでその値を保ちます。テスト損失も、同じ区間で急激に下がります。
+訓練精度はステップ 200 までに 100% になります。一方、テスト精度はステップ 4,000 前後まで約 10% 以下にとどまります。その後テスト精度は急に上がり、ステップ 7,000 ごろにはほぼ 100% に達します。テスト損失も、同じ区間で急激に下がります。
+
+この結果は、損失を float32 で計算していた版のコードによるものです。訓練損失は 1e-7 付近で止まったあと何度も跳ね上がり、テスト精度もステップ 8,000 付近や学習の最後で一時的に下がっています。現在のコードは損失を float64 で計算します。CPU で最初の 4,000 ステップを比べると、float32 では訓練損失が2回、最大 0.015 まで跳ねましたが、float64 では一度も跳ねませんでした。40,000 ステップの本番はまだ回し直していません。
 
 ### 図2：埋め込みのフーリエスペクトル
 
