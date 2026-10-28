@@ -32,8 +32,8 @@ def embedding_spectrum(W_E: torch.Tensor, p: int) -> torch.Tensor:
 
 @torch.no_grad()
 def neuron_logit_spectrum(W_U: torch.Tensor, W_out: torch.Tensor, p: int) -> torch.Tensor:
-    """W_L = W_U W_out (p, d_mlp) の列を展開する。"""
-    return spectrum(W_U @ W_out, fourier_basis(p).to(W_U.device))
+    """W_L = W_U W_out (p, d_mlp) の列を展開する。W_U (p+1, d) のうち数字 0..p-1 の行だけを使う。"""
+    return spectrum(W_U[:p] @ W_out, fourier_basis(p).to(W_U.device))
 
 
 def top_frequencies(spec: torch.Tensor, n: int = 5) -> list[int]:

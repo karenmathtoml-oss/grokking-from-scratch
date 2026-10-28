@@ -18,6 +18,13 @@ def cross_entropy(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
     return F.cross_entropy(logits.to(torch.float64), labels)
 
 
+def warmup_factor(step: int, warmup_steps: int) -> float:
+    """学習率に掛ける係数。公開実装と同じく、step 0 の更新は 0 倍から始まる。"""
+    if warmup_steps == 0:
+        return 1.0
+    return min(step / warmup_steps, 1.0)
+
+
 @torch.no_grad()
 def evaluate(model: Transformer, tokens: torch.Tensor, labels: torch.Tensor) -> tuple[float, float]:
     """(損失, 正解率) を返す。"""
@@ -67,6 +74,9 @@ def train(cfg: Config, root: str | Path = "runs", device: str | None = None) -> 
         weight_decay=cfg.weight_decay,
         betas=cfg.betas,
     )
+    scheduler = torch.optim.lr_scheduler.LambdaLR(
+        optimizer, lambda step: warmup_factor(step, cfg.warmup_steps)
+    )
 
     log_steps = set(range(0, cfg.steps + 1, cfg.log_every))
     checkpoint_steps = set(cfg.checkpoint_steps())
@@ -111,6 +121,7 @@ def train(cfg: Config, root: str | Path = "runs", device: str | None = None) -> 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            scheduler.step()
 
 
     return run_dir

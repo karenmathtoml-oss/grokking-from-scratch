@@ -9,6 +9,7 @@
   "lr": 0.001,
   "weight_decay": 1.0,
   "betas": [0.9, 0.98],
+  "warmup_steps": 10,
   "steps": 40000,
   "log_every": 100,
   "n_checkpoints": 40,
