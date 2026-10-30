@@ -40,7 +40,7 @@ n = ReLU(W_in x⁽¹⁾₂ + b_in),   x⁽²⁾ = x⁽¹⁾₂ + W_out n + b_out
 
 ## 最適化
 
-AdamW（lr = 1e-3、weight_decay = 1.0、betas = (0.9, 0.98)）で、フルバッチ 40,000 ステップです。`torch.optim.AdamW` の weight_decay の既定値は 0.01 なので、必ず明示します。`torch.optim.Adam` の weight_decay は L2 正則化で挙動が違うため使いません。最初の 10 ステップ（`warmup_steps`）は、学習率を 0 から線形に上げます。公開実装の `LambdaLR(min(step/10, 1))` と同じで、最初の1回の更新は学習率 0 です。損失は float64 で計算します（`grokking/train.py` の `cross_entropy`）。float32 では、自信の強い予測に対する損失が約 1.2e-7 の倍数に丸められるためです。
+AdamW（lr = 1e-3、weight_decay = 1.0、betas = (0.9, 0.98)）で、フルバッチ 40,000 ステップです。`torch.optim.AdamW` の weight_decay の既定値は 0.01 なので、必ず明示します。`torch.optim.Adam` の weight_decay は L2 正則化で挙動が違うため使いません。最初の 10 ステップ（`warmup_steps`）は、学習率を 0 から線形に上げます。公開実装の `LambdaLR(min(step/10, 1))` と同じで、最初の1回の更新は学習率 0 です。損失は float64 で計算します（`grokking/train.py` の `cross_entropy`）。float32 では、自信の強い予測に対する損失が約 1.2e-7 の倍数に丸められ、訓練損失が約 1,300 ステップごとに跳ね続けるためです（`docs/note.md` の「損失の精度の比較実験」）。
 
 ## 公開実装との違い
 
@@ -49,7 +49,7 @@ Nanda et al. の公開実装（[progress-measures-paper](https://github.com/mech
 | 項目 | 公開実装 | このリポジトリ | 理由 |
 |---|---|---|---|
 | 学習ステップ数 | 50,000（`num_epochs`） | 40,000 | 公開実装の解析ノートブック（`Grokking_Analysis.ipynb`）は 40,000 エポック目の重みを解析し、損失も 40,000 までで切っている。実装ガイドも論文の設定として 40,000 エポックを挙げている |
-| 損失の精度 | コメントは float64 とするが、コードは float32 に変換している | float64 | float32 では損失が約 1.2e-7 の倍数に丸められ、訓練損失が繰り返し跳ねた |
+| 損失の精度 | コメントは float64 とするが、コードは float32 に変換している | float64 | float32 では損失が約 1.2e-7 の倍数に丸められ、同じ構造でも訓練損失が 40,000 ステップの間に 30 回跳ねた。float64 では跳ねなかった |
 | 訓練データの選び方 | Python の `random.shuffle`（`seed`） | `torch.randperm`（`data_seed`） | 分割を、グローバルな乱数に触れない専用の `Generator` だけで決めるため。同じ 30% でも、選ばれる組は公開実装と異なる |
 
 ## 記録するもの
