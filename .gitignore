@@ -6,3 +6,5 @@ runs/
 __pycache__/
 .pytest_cache/
 .venv/
+# 個人用のメモ。リポジトリには入れない
+docs/note.md
