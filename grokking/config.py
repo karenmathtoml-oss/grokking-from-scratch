@@ -19,6 +19,7 @@ class Config:
     lr: float
     weight_decay: float
     betas: tuple[float, float]
+    warmup_steps: int           # 学習率を線形に上げるステップ数
     steps: int
     log_every: int
     n_checkpoints: int          # 対数間隔で保存する個数

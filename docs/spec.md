@@ -15,13 +15,13 @@
 
 ## モデル
 
-LayerNorm とバイアスのない1層 Transformer です。d = 128、H = 4、d_head = 32、d_mlp = 512。
+LayerNorm のない1層 Transformer で、MLP にだけバイアスがあります。d = 128、H = 4、d_head = 32、d_mlp = 512。
 
 ```
 x⁽⁰⁾ᵢ = W_E[:, tᵢ] + W_pos[:, i]
 Aʰᵢⱼ = softmax_{j≤i}( <W_Qʰ x⁽⁰⁾ᵢ, W_Kʰ x⁽⁰⁾ⱼ> / √d_head ),   x⁽¹⁾ᵢ = x⁽⁰⁾ᵢ + Σₕ W_Oʰ Σⱼ Aʰᵢⱼ W_Vʰ x⁽⁰⁾ⱼ
-n = ReLU(W_in x⁽¹⁾₂),   x⁽²⁾ = x⁽¹⁾₂ + W_out n
-ℓ = W_U x⁽²⁾ ∈ ℝᵖ
+n = ReLU(W_in x⁽¹⁾₂ + b_in),   x⁽²⁾ = x⁽¹⁾₂ + W_out n + b_out
+ℓ = W_U x⁽²⁾ ∈ ℝᵖ⁺¹
 ```
 
 | 重み | 形 | 重み | 形 |
@@ -29,9 +29,10 @@ n = ReLU(W_in x⁽¹⁾₂),   x⁽²⁾ = x⁽¹⁾₂ + W_out n
 | `W_E` | `(d, p+1)` | `W_O` | `(H, d, d_head)` |
 | `W_pos` | `(d, 3)` | `W_in` | `(d_mlp, d)` |
 | `W_Q`, `W_K`, `W_V` | `(H, d_head, d)` | `W_out` | `(d, d_mlp)` |
-| | | `W_U` | `(p, d)` |
+| `b_in` | `(d_mlp,)` | `W_U` | `(p+1, d)` |
+| `b_out` | `(d,)` | | |
 
-初期値は N(0, 1/fan_in) で、`init_seed` で初期化した専用の `Generator` から作ります。パラメータ数は 226,048 です。因果マスクは buffer、中間値の取り出し口は `nn.Identity` の hook 点（6か所）です。`Transformer` は既定値を持たず、値はすべて `Config` から渡します。`seq_len` は `Config` に置かず、データの形（`tokens.shape[1]`）から決めます。
+初期値は公開実装に合わせ、`W_U` は N(0, 1/(p+1))、それ以外の重みは N(0, 1/d)、バイアスは 0 です。乱数は `init_seed` で初期化した専用の `Generator` から作ります。パラメータ数は 226,816 です。出力のロジットは `=` を含む語彙 p + 1 個分です。正解は 0〜p−1 なので、`=` のロジットは学習で押し下げられるだけです。解析で `W_L = W_U W_out` を使うときは、数字の p 行（`W_U[:p]`）だけを使います。因果マスクは buffer、中間値の取り出し口は `nn.Identity` の hook 点（6か所）です。`Transformer` は既定値を持たず、値はすべて `Config` から渡します。`seq_len` は `Config` に置かず、データの形（`tokens.shape[1]`）から決めます。
 
 ## 損失
 
@@ -39,7 +40,17 @@ n = ReLU(W_in x⁽¹⁾₂),   x⁽²⁾ = x⁽¹⁾₂ + W_out n
 
 ## 最適化
 
-AdamW（lr = 1e-3、weight_decay = 1.0、betas = (0.9, 0.98)）で、フルバッチ 40,000 ステップです。`torch.optim.AdamW` の weight_decay の既定値は 0.01 なので、必ず明示します。`torch.optim.Adam` の weight_decay は L2 正則化で挙動が違うため使いません。
+AdamW（lr = 1e-3、weight_decay = 1.0、betas = (0.9, 0.98)）で、フルバッチ 40,000 ステップです。`torch.optim.AdamW` の weight_decay の既定値は 0.01 なので、必ず明示します。`torch.optim.Adam` の weight_decay は L2 正則化で挙動が違うため使いません。最初の 10 ステップ（`warmup_steps`）は、学習率を 0 から線形に上げます。公開実装の `LambdaLR(min(step/10, 1))` と同じで、最初の1回の更新は学習率 0 です。損失は float64 で計算します（`grokking/train.py` の `cross_entropy`）。float32 では、自信の強い予測に対する損失が約 1.2e-7 の倍数に丸められ、訓練損失が約 1,300 ステップごとに跳ね続けるためです（`docs/note.md` の「損失の精度の比較実験」）。
+
+## 公開実装との違い
+
+Nanda et al. の公開実装（[progress-measures-paper](https://github.com/mechanistic-interpretability-grokking/progress-measures-paper) の `transformers.py` と `helpers.py`、`main` ブランチ）に合わせています。MLP のバイアス、`W_out` と `W_U` の初期化、出力の次元（p + 1）、学習率のウォームアップは、もとは実装ガイドに従って省いたり変えたりしていましたが、公開実装と同じにしました（実装ガイドは、式を線形写像と ReLU だけにして解析を素直にするため、バイアスを省いていました）。残る違いは次の3つです。論文本文とはまだ照合していません。
+
+| 項目 | 公開実装 | このリポジトリ | 理由 |
+|---|---|---|---|
+| 学習ステップ数 | 50,000（`num_epochs`） | 40,000 | 公開実装の解析ノートブック（`Grokking_Analysis.ipynb`）は 40,000 エポック目の重みを解析し、損失も 40,000 までで切っている。実装ガイドも論文の設定として 40,000 エポックを挙げている |
+| 損失の精度 | コメントは float64 とするが、コードは float32 に変換している | float64 | float32 では損失が約 1.2e-7 の倍数に丸められ、同じ構造でも訓練損失が 40,000 ステップの間に 30 回跳ねた。float64 では跳ねなかった |
+| 訓練データの選び方 | Python の `random.shuffle`（`seed`） | `torch.randperm`（`data_seed`） | 分割を、グローバルな乱数に触れない専用の `Generator` だけで決めるため。同じ 30% でも、選ばれる組は公開実装と異なる |
 
 ## 記録するもの
 

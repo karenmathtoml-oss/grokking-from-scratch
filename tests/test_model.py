@@ -23,9 +23,9 @@ model = make_model()
 
 
 def test_output_shape_and_dtype():
-    """出力は (B, p) の float32 ロジットで、すべて有限値。"""
+    """出力は (B, p+1) の float32 ロジットで、すべて有限値。"""
     logits = model(tokens)
-    assert logits.shape == (2, p)
+    assert logits.shape == (2, p + 1)
     assert logits.dtype == torch.float32
     assert torch.isfinite(logits).all()
 
@@ -38,13 +38,24 @@ def test_init_seed():
     m3 = make_model(init_seed=1)
     for (name, a), b, c in zip(m1.named_parameters(), m2.parameters(), m3.parameters()):
         assert torch.equal(a, b), name
-        assert not torch.equal(a, c), name
+        if not name.startswith("b_"):                   # バイアスはシードによらず 0 で始まる
+            assert not torch.equal(a, c), name
 
 def test_parameter_count():
     cfg = Config.load(ROOT / "configs" / "base.json")
     m = Transformer(cfg.p, cfg.d_model, cfg.n_heads, cfg.d_mlp, seq_len=3, init_seed=cfg.init_seed)
     n = sum(prm.numel() for prm in m.parameters())
-    assert n == 226_048
+    assert n == 226_816
+
+
+def test_init_scale_matches_public_implementation():
+    """W_out は N(0, 1/d)、W_U は N(0, 1/(p+1))、MLP のバイアスは 0 で始まる。"""
+    cfg = Config.load(ROOT / "configs" / "base.json")
+    m = Transformer(cfg.p, cfg.d_model, cfg.n_heads, cfg.d_mlp, seq_len=3, init_seed=cfg.init_seed)
+    assert abs(m.W_out.std().item() * cfg.d_model ** 0.5 - 1) < 0.02
+    assert abs(m.W_U.std().item() * (cfg.p + 1) ** 0.5 - 1) < 0.02
+    assert m.W_U.shape == (cfg.p + 1, cfg.d_model)
+    assert torch.all(m.b_in == 0) and torch.all(m.b_out == 0)
 
 def test_causal_mask():
     """未来の位置への注意が 0 で、各行の和が 1。"""
