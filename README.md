@@ -109,7 +109,7 @@ Google Colabでの実行時、ノートブックは図を Google Drive の `runs
 - 振動があってもなくても、汎化する時期はほぼ同じでした。振動は grokking に必要なものでも、grokking を妨げるものでもありません。
 - ただし float32 では、汎化した後もテスト精度が一時的に下がり、最後に使う周波数も変わります。上の図1〜3は float32 の版の結果なので、この影響を含んでいます。
 
-詳しい数値は [`docs/note.md` の「損失の精度の比較実験」](docs/note.md#損失の精度の比較実験cpu40000-ステップ)にあります。
+詳しい数値は [`docs/experiments.md` の「損失の精度の比較実験」](docs/experiments.md#損失の精度の比較実験cpu40000-ステップ)にあります。
 
 ## ディレクトリ構成
 
@@ -120,7 +120,7 @@ configs/             base.json, experiments/*.json
 notebooks/           01_train.ipynb, 02_fourier_analysis.ipynb
 tests/               pytest のテスト
 figures/             README に載せる図
-docs/                spec.md、notes.md
+docs/                spec.md（仕様）、experiments.md（実験記録）
 ```
 
 ## 参考文献

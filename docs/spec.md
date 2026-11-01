@@ -40,7 +40,7 @@ n = ReLU(W_in x⁽¹⁾₂ + b_in),   x⁽²⁾ = x⁽¹⁾₂ + W_out n + b_out
 
 ## 最適化
 
-AdamW（lr = 1e-3、weight_decay = 1.0、betas = (0.9, 0.98)）で、フルバッチ 40,000 ステップです。`torch.optim.AdamW` の weight_decay の既定値は 0.01 なので、必ず明示します。`torch.optim.Adam` の weight_decay は L2 正則化で挙動が違うため使いません。最初の 10 ステップ（`warmup_steps`）は、学習率を 0 から線形に上げます。公開実装の `LambdaLR(min(step/10, 1))` と同じで、最初の1回の更新は学習率 0 です。損失は float64 で計算します（`grokking/train.py` の `cross_entropy`）。float32 では、自信の強い予測に対する損失が約 1.2e-7 の倍数に丸められ、訓練損失が約 1,300 ステップごとに跳ね続けるためです（`docs/note.md` の「損失の精度の比較実験」）。
+AdamW（lr = 1e-3、weight_decay = 1.0、betas = (0.9, 0.98)）で、フルバッチ 40,000 ステップです。`torch.optim.AdamW` の weight_decay の既定値は 0.01 なので、必ず明示します。`torch.optim.Adam` の weight_decay は L2 正則化で挙動が違うため使いません。最初の 10 ステップ（`warmup_steps`）は、学習率を 0 から線形に上げます。公開実装の `LambdaLR(min(step/10, 1))` と同じで、最初の1回の更新は学習率 0 です。損失は float64 で計算します（`grokking/train.py` の `cross_entropy`）。float32 では、自信の強い予測に対する損失が約 1.2e-7 の倍数に丸められ、訓練損失が約 1,300 ステップごとに跳ね続けるためです（`docs/experiments.md` の「損失の精度の比較実験」）。
 
 ## 公開実装との違い
 
