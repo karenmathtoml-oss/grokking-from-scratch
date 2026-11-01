@@ -1,4 +1,4 @@
-# grokking-from-scratch
+# grokking-modular-addition
 
 Nanda et al.（2023）*Progress measures for grokking via mechanistic interpretability* を、一から再現するリポジトリです。1層Transformer に、113 を法とする加法を、全データセットの30%だけで学習させます。モデルは数百ステップで訓練データを丸暗記しますが、テストデータへの汎化は、それよりずっと後に急に起こります（grokking）。学習したネットワークが、少数の周波数を使って `a + b` を計算していることを示すフーリエ解析も行います。
 
