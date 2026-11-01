@@ -1,7 +1,21 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
 name = "grokking"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["torch", "numpy", "pandas", "matplotlib", "imageio"]
+dependencies = [
+    "torch>=2.0",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "matplotlib>=3.7",
+    "imageio>=2.28",    # mimsave の duration がミリ秒になる版
+]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+include = ["grokking*"]

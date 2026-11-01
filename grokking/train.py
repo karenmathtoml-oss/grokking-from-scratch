@@ -13,11 +13,23 @@ from grokking.data import CyclicGroup, make_dataset, train_test_split
 from grokking.model import Transformer
 
 
+def cross_entropy(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    """float64 で計算する交差エントロピー。float32 だと損失が約 1.2e-7 の倍数に丸められ、スパイクの原因になる。"""
+    return F.cross_entropy(logits.to(torch.float64), labels)
+
+
+def warmup_factor(step: int, warmup_steps: int) -> float:
+    """学習率に掛ける係数。公開実装と同じく、step 0 の更新は 0 倍から始まる。"""
+    if warmup_steps == 0:
+        return 1.0
+    return min(step / warmup_steps, 1.0)
+
+
 @torch.no_grad()
 def evaluate(model: Transformer, tokens: torch.Tensor, labels: torch.Tensor) -> tuple[float, float]:
     """(損失, 正解率) を返す。"""
     logits = model(tokens)
-    loss = F.cross_entropy(logits, labels)
+    loss = cross_entropy(logits, labels)
     accuracy = (logits.argmax(dim=-1) == labels).float().mean()
     return loss.item(), accuracy.item()
 
@@ -62,6 +74,9 @@ def train(cfg: Config, root: str | Path = "runs", device: str | None = None) -> 
         weight_decay=cfg.weight_decay,
         betas=cfg.betas,
     )
+    scheduler = torch.optim.lr_scheduler.LambdaLR(
+        optimizer, lambda step: warmup_factor(step, cfg.warmup_steps)
+    )
 
     log_steps = set(range(0, cfg.steps + 1, cfg.log_every))
     checkpoint_steps = set(cfg.checkpoint_steps())
@@ -102,10 +117,11 @@ def train(cfg: Config, root: str | Path = "runs", device: str | None = None) -> 
 
             model.train()
             logits = model(train_tokens)
-            loss = F.cross_entropy(logits, train_labels)
+            loss = cross_entropy(logits, train_labels)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            scheduler.step()
 
 
     return run_dir
